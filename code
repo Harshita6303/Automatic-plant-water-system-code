@@ -1,0 +1,91 @@
+import machine
+
+from machine import ADC, Pin, I2C
+import time
+import utime
+
+#from machine import I2C
+from lcd_api import LcdApi
+from pico_i2c_lcd import I2cLcd
+
+i2c = I2C(0, sda=machine.Pin(0), scl=machine.Pin(1), freq=400000)
+lcd = I2cLcd(i2c, 0x3f, 2, 16)
+
+ksn_led = Pin(25, Pin.OUT)
+red_led = Pin(14, Pin.OUT) #RED LED
+green_led = Pin(13, Pin.OUT) #GREEN LED
+pump = Pin(22, Pin.OUT) #pump
+soil = ADC(Pin(27)) 
+
+
+#Calibraton values
+min_moisture=0
+max_moisture=65535
+
+flag1 = 0
+flag2 = 0
+
+def pump_on():
+    red_led.value(1)
+    green_led.value(0)
+    pump.value(1)
+    #time.sleep(1)
+    print("Pump On - Watering the Plant")
+    
+def pump_off():
+    red_led.value(0)
+    green_led.value(1)
+    pump.value(0)
+    print("Plant is healthy.")
+
+
+#Main Function
+lcd.clear()
+lcd.move_to(0, 0)
+lcd.putstr("Automatic Plant")
+lcd.move_to(0, 1)
+lcd.putstr("Watering System")
+time.sleep(2)
+lcd.clear()
+
+pump.value(0)
+time.sleep(1)
+
+while True:
+    ksn_led.toggle()
+    moisture = (max_moisture-soil.read_u16())*100/(max_moisture-min_moisture) 
+    # print values
+    print("moisture: " + "%.2f" % moisture +" %")
+     
+    lcd.clear()
+    lcd.move_to(0, 0)
+    lcd.putstr("Moisture Level: ")
+    lcd.move_to(0, 1)
+    lcd.putstr(str(moisture))
+    lcd.putstr("%")
+    time.sleep(0.3)
+    
+    if(moisture < 60):
+        pump_on()
+        flag1 = flag1 + 1
+        if(flag1 == 1):
+            flag2 = 0
+            pump_on()
+            lcd.clear()
+            lcd.move_to(0, 0)
+            lcd.putstr("Moisture Lvl LOW")
+            lcd.move_to(0, 1)
+            lcd.putstr(" PUMP MOTOR ON ")
+            time.sleep(5)
+      
+    elif(moisture > 60):
+        pump_off()
+        flag2 = flag2 + 1
+        if(flag2 == 1):
+            flag1 = 0
+            lcd.clear()
+            lcd.move_to(0, 0)
+            lcd.putstr("Moistur Lvl HIGH")
+            lcd.move_to(0, 1)
+            lcd.putstr(" PUMP MOTOR OFF ")
+            time.sleep(5)
